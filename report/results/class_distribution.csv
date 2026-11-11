@@ -1,0 +1,11 @@
+class,training,validation
+airplane,4470,530
+automobile,4517,483
+bird,4522,478
+cat,4522,478
+deer,4507,493
+dog,4503,497
+frog,4483,517
+horse,4482,518
+ship,4489,511
+truck,4505,495
