@@ -1,0 +1,337 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=22mm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx,booktabs,array}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\definecolor{ink}{HTML}{16324F}
+\definecolor{accent}{HTML}{007F82}
+\hypersetup{colorlinks=true,linkcolor=ink,urlcolor=accent,citecolor=ink,
+  pdftitle={CIFAR-10: CNN Design, Inspection and Architecture Experiments},
+  pdfauthor={Sajjad Ranjbar}}
+\graphicspath{{report/figures/}}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+\setlength{\headheight}{15pt}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small Sajjad Ranjbar \enspace / \enspace 405522012}
+\rhead{\small CNNs on CIFAR-10}
+\cfoot{\thepage}
+\newcommand{\fig}[3]{\begin{figure}[htbp]\centering\includegraphics[width=#2\linewidth]{#1}\caption{#3}\end{figure}}
+\input{Latex/results.tex}
+\begin{document}
+\begin{titlepage}
+\vspace*{17mm}
+{\large\color{accent} SHAHID BEHESHTI UNIVERSITY\par}
+{\large Faculty of Mathematical Sciences\par}
+{\large Computer Science\par}
+\vspace{26mm}
+{\Huge\bfseries\color{ink} Learning to See\par}
+\vspace{5mm}
+{\LARGE CNN Design, Inspection and\par Architecture Experiments on CIFAR-10\par}
+\vspace{16mm}
+{\large Neural Networks \enspace | \enspace Fall 2026\par}
+\vfill
+\begin{tabular}{@{}ll@{}}
+\textbf{Student} & Sajjad Ranjbar\\[4pt]
+\textbf{Student ID} & 405522012\\[4pt]
+\textbf{Experiment platform} & PyTorch, CPU; four execution threads\\[4pt]
+\textbf{Date} & 11 November 2026
+\end{tabular}
+\vspace{15mm}
+\end{titlepage}
+
+\section*{Abstract}
+I compare four compact convolutional classifiers under a common ten-epoch
+training budget on CIFAR-10. The study changes depth, activation function,
+and convolution type while preserving the data split and training procedure.
+Model and checkpoint selection use validation macro F1. Run \WinningRun,
+selected at epoch \WinningEpoch, achieves \TestAccuracy\% test accuracy and
+\TestMacroFone\ test macro F1 in one final test inference pass. The models
+are inspected through intermediate activations and a separate validation-only
+occlusion experiment. These are short, single-seed experiments: they establish
+a reproducible comparison within this budget, not a globally optimal model.
+
+\section{Data, preprocessing and reproducibility}
+CIFAR-10 contains 60,000 RGB images of size $32\times32$ from ten balanced
+classes. The official 50,000 training examples are shuffled with a PyTorch
+generator seeded at 42. The first 5,000 indices form validation; the other
+45,000 form training. The official 10,000 test examples remain reserved until
+architecture and checkpoint selection are finished. Saved split indices and
+their SHA-256 digest make the partition auditable.
+
+\textbf{Leakage prevention.} The split is established before channel statistics
+are calculated. Only the 45,000 training images contribute to the per-channel
+population mean and standard deviation, using float64 accumulation after
+scaling bytes to $[0,1]$:
+\[
+\mu_c=\frac{1}{M}\sum_i x_{ic},\qquad
+\sigma_c=\sqrt{\frac{1}{M}\sum_i x_{ic}^2-\mu_c^2},\qquad
+z_{ic}=\frac{x_{ic}-\mu_c}{\sigma_c}.
+\]
+Here $M$ counts all training pixels in a channel. The measured statistics are:
+\begin{center}
+\begin{tabular}{rl}
+Training RGB mean & \TrainingMean\\
+Training RGB standard deviation & \TrainingStd
+\end{tabular}
+\end{center}
+Validation and test images use these same fixed training statistics. Computing them from all
+60,000 examples would leak held-out input information into preprocessing.
+
+Training uses a random $32\times32$ crop after padding by four pixels, random
+horizontal flips, tensor conversion and normalization. Evaluation uses only
+tensor conversion and normalization. An image tensor has shape $(3,32,32)$;
+PyTorch expects channels before height and width, whereas ordinary RGB image
+arrays use height, width, channels. A batch is $(N,3,32,32)$.
+
+The official download host was denied by the cloud network policy. The data
+were therefore obtained from a pinned GitHub mirror. All six original batch
+files and the metadata file matched the MD5 values distributed with
+\texttt{torchvision.datasets.CIFAR10} before loading; additional SHA-256
+file digests and the mirror commit are stored in the provenance log. The
+mirror was used for data only, not for model code or performance results.
+
+\fig{sample_images.png}{0.88}{Ten validation examples. Labels are ground truth; images are displayed after undoing normalization.}
+
+\section{Baseline and training procedure}
+The baseline consists of three standard convolution blocks with output
+channels 16, 32 and 64. Each block applies a $3\times3$, stride-one,
+padding-one convolution, batch normalization, ReLU and $2\times2$ max
+pooling. Bias is omitted from convolutions followed by batch normalization.
+The spatial progression is
+\[
+(3,32,32)\to(16,16,16)\to(32,8,8)\to(64,4,4)
+\to(64,1,1)\to64\to10.
+\]
+Adaptive average pooling supplies the $(64,1,1)$ representation. The
+classifier is a 64-unit hidden linear layer, ReLU, dropout 0.3, and a final
+10-unit linear layer. The baseline has \BaselineParameters\ trainable parameters.
+
+The output is ten raw class logits. Cross-entropy internally combines the
+log-softmax and negative log-likelihood operations, so a final model softmax
+is unnecessary. For visual confidence values only, softmax converts logits
+into probabilities. It is not a calibration guarantee.
+
+Convolutions learn shared local pattern detectors, nonlinear activations
+make the overall mapping nonlinear, and pooling reduces spatial cost and
+increases the area of the input summarized by later features. Removing
+pooling retains fine detail but increases activation memory and computation;
+adaptive pooling still provides a fixed classifier interface.
+
+\begin{table}[htbp]\centering
+\caption{Training controls shared by all four configurations.}
+\begin{tabular}{@{}ll@{}}\toprule
+Setting & Value\\\midrule
+Training / validation / test & 45,000 / 5,000 / 10,000\\
+Epochs per configuration & 10, full training split each epoch\\
+Batch size & 128\\
+Optimizer & AdamW\\
+Initial learning rate / weight decay & 0.003 / 0.0001\\
+Schedule & Cosine annealing, $T_{\max}=10$, minimum 0\\
+Random seed & 42; reset for every run\\
+Classifier hidden units / dropout & 64 / 0.3\\
+Checkpoint selection & Highest validation macro F1; lower loss breaks ties\\
+\bottomrule\end{tabular}
+\end{table}
+
+Each epoch records mean example-weighted cross-entropy and accuracy for
+training and validation, plus validation macro F1 and wall time. Training
+mode enables dropout and updates batch-normalization statistics; evaluation
+mode disables dropout and uses stored statistics. Gradients are disabled
+for all evaluation passes. Checkpoints are chosen using validation only.
+Training curves use augmented images with dropout, so their accuracy is not
+a perfectly matched comparison to clean validation accuracy.
+
+\section{Configurable architecture and controlled comparisons}
+The general \texttt{ConfigurableCNN} receives a dictionary of convolution
+blocks rather than fixing their number in code. Each block specifies output
+channels, kernel size, stride, padding, convolution type, optional batch
+normalization, activation, and optional pooling. Both ReLU and GELU are
+supported. Adaptive average pooling to $1\times1$ means that changing depth
+or input spatial size does not require manually changing the classifier
+input shape. Hidden dimension and dropout are configurable as well.
+
+The alternate convolution type is depthwise-separable: a grouped spatial
+convolution filters each input channel separately, then a $1\times1$
+pointwise convolution mixes channels. Its convolution weights scale as
+$C_{\rm in}k^2+C_{\rm in}C_{\rm out}$, compared with
+$C_{\rm in}C_{\rm out}k^2$ for a standard convolution. This reduces parameters
+but also changes the model's representational constraints; a parameter saving
+does not guarantee an accuracy improvement or a wall-time improvement.
+
+Before training the alternatives, shape checks exercised standard and
+separable convolutions, ReLU and GELU, variable depth and hidden size,
+stride two, a $5\times5$ kernel, disabled batch normalization/pooling, and
+$32\times32$ and $40\times40$ inputs. Loading identical weights into the
+explicit baseline and its configurable equivalent produced identical logits.
+
+\begin{table}[htbp]\centering\small
+\caption{Predeclared interventions. All blocks use kernel/stride/padding $3/1/1$, batch normalization and max pooling by two. The separable pointwise convolutions use $1/1/0$.}
+\begin{tabular}{@{}clll@{}}\toprule
+Run & Block output channels & Convolution & Activation\\\midrule
+01 & 16 / 32 / 64 & Standard & ReLU\\
+02 & 16 / 32 / 64 / 96 & Standard & ReLU\\
+03 & 16 / 32 / 64 & Standard & GELU\\
+04 & 16 / 32 / 64 & Depthwise + pointwise & ReLU\\\bottomrule
+\end{tabular}\end{table}
+
+The depth hypothesis is that another block improves the learned
+representation; it also adds a 96-channel stage and another downsampling
+step, so this is not a pure width experiment. The activation hypothesis is
+that GELU's smoother nonlinearity improves optimization. The efficiency
+hypothesis is that separable convolutions retain useful performance with
+fewer weights. Every run resets the random seed, shuffled data-loader
+generator, optimizer and schedule. Different model shapes still consume
+random numbers differently, so this is a shared protocol, not a promise of
+identical initialization across architectures.
+
+\input{Latex/comparison_table.tex}
+\input{Latex/comparison_discussion.tex}
+
+\fig{architecture_comparison.png}{0.82}{Validation macro F1 across the same ten-epoch budget. The official test split is not involved in these curves.}
+\clearpage
+\section{Learning curves and generalization}
+\input{Latex/curve_discussion.tex}
+\fig{01_curves.png}{0.92}{Run 01: baseline loss and accuracy. The vertical line marks the epoch selected by validation macro F1.}
+\fig{02_curves.png}{0.92}{Run 02: additional depth and a 96-channel last block, with the same training budget.}
+\clearpage
+\fig{03_curves.png}{0.92}{Run 03: GELU replaces ReLU in convolution blocks and the hidden classifier.}
+\fig{04_curves.png}{0.92}{Run 04: depthwise-separable convolutions replace standard convolutions.}
+\clearpage
+
+\section{Selected model architecture}
+The winning run is \WinningRun\ (\WinningName), checkpoint epoch
+\WinningEpoch. No architecture change or retraining follows the test results.
+The model has \WinningParameters\ trainable parameters.
+
+\input{Latex/architecture_table.tex}
+
+The post-feature representation is adaptively averaged to one spatial cell,
+flattened, projected to 64 hidden units with the selected activation, passed
+through dropout 0.3, and projected to ten logits. This table describes the
+actual saved checkpoint, not a separately proposed architecture.
+
+\section{Intermediate activations and feature maps}
+Forward hooks capture the outputs of entire convolution blocks, after
+activation and pooling. The examples are the first airplane and first cat
+in the validation split, selected by true label before visual inspection.
+For each, eight channels from the first and last blocks are shown. The
+baseline and selected model are both inspected, allowing a direct view of
+how the studied representations differ.
+
+\input{Latex/feature_discussion.tex}
+Early feature maps retain finer spatial variation in edges, colour regions
+and texture; later maps are coarser summaries with larger receptive fields.
+A channel can be approximately constant because its preferred pattern is
+absent, because ReLU suppresses it, or because its response is spatially
+uniform. Spatial standard deviation below $10^{-5}$ is logged as a
+near-constant response for this input. A single image cannot establish that
+a filter is permanently inactive. Downsampling discards exact positions
+and fine structures; not every semantic distinction survives it.
+
+\fig{baseline_features_airplane.png}{0.94}{Baseline activations for a validation airplane. Top: input and prediction. Middle: first block. Bottom: last block. Each channel has its own intensity scale.}
+\fig{baseline_features_cat.png}{0.94}{Baseline activations for a validation cat. The same filter indices act on different input content.}
+\clearpage
+\fig{selected_features_airplane.png}{0.94}{Selected-model activations for the same validation airplane. Brightness across panels is not an absolute activation comparison.}
+\fig{selected_features_cat.png}{0.94}{Selected-model activations for the same validation cat. Visual differences do not by themselves identify a filter's semantic meaning.}
+\clearpage
+
+\section{Multiclass metrics and final test evaluation}
+For class $c$, let $TP_c$, $FP_c$ and $FN_c$ denote true positives, false
+positives and false negatives. The reported metrics are
+\[
+\mathrm{accuracy}=\frac{\sum_c TP_c}{N},\quad
+P_c=\frac{TP_c}{TP_c+FP_c},\quad
+R_c=\frac{TP_c}{TP_c+FN_c},\quad
+F1_c=\frac{2P_cR_c}{P_c+R_c}.
+\]
+A zero denominator is assigned score zero by the metric implementation.
+Macro metrics average the ten class scores equally. Weighted metrics average
+them by true-class support. Each official test class has 1,000 examples,
+so macro and weighted precision, recall and F1 coincide here. Weighted
+recall also equals accuracy in single-label multiclass classification.
+
+For cat, a dog predicted as cat is a false positive and a cat predicted as
+dog is a false negative. Predicting cat very rarely but accurately can give
+high cat precision and low cat recall. Accuracy alone hides this pattern;
+macro F1 assigns each class equal weight, and the confusion matrix identifies
+the directions and magnitudes of class confusions.
+
+The architecture and checkpoint epoch were frozen using validation macro F1
+(\ValidationMacroFone). The test loader was then evaluated once for 10,000
+examples. Every metric, the per-class report and the confusion matrix below
+reuse that same inference pass. No test result was used to select another
+model or training procedure. Raw labels and predictions are saved so these
+metrics can be independently recalculated without running the model again.
+
+\input{Latex/test_tables.tex}
+\input{Latex/test_discussion.tex}
+\fig{test_confusion_matrix.png}{0.85}{Final test confusion matrix. Rows are true labels and columns are predictions; all 10,000 examples are included.}
+\clearpage
+
+\section{Optional robustness experiment}
+The optional extension asks what happens when central visual evidence is
+removed. A fixed $12\times12$ centre patch covers 144 of 1,024 pixels
+(14.0625\%). Values are set to zero in normalized space, which corresponds
+to the training RGB mean, not black. The selected weights are frozen and
+all 5,000 validation examples are evaluated. This uses validation only and
+does not add another test inference pass or alter model selection.
+\input{Latex/occlusion_discussion.tex}
+\fig{occlusion_examples.png}{0.92}{Clean validation images above and their occluded counterparts below. Titles show true class followed by predicted class.}
+This probe measures sensitivity to one particular spatial corruption. It
+cannot establish robustness to all occlusions, shifts, noise or adversarial
+changes, and the centre location is not a causal explanation of what a CNN
+has learned.
+
+\section{Reflection and limitations}
+\input{Latex/reflection.tex}
+The experiment uses one seed and a short CPU budget. Reported differences
+can depend on initialization, the validation sample and training duration.
+No confidence interval or multi-seed significance claim is made. Comparing
+only four configurations cannot establish a global optimum. Lower training
+loss alone is not a sufficient selection criterion, and augmented training
+accuracy must be interpreted alongside clean validation metrics.
+
+A useful next study would repeat the same validation-based comparison over
+several seeds and a larger common epoch budget, then investigate remaining
+class confusions. Those decisions must not repeatedly consult this already
+reported test set. Test results in this report are a final measurement of
+this completed selection procedure.
+
+\section*{Reproduction and attribution}
+The executed notebook is
+\texttt{Noebooks/CIFAR10\_CNN\_Assignment.ipynb}. It contains the full model,
+training, metric and plotting code, all assignment answers, and outputs.
+Measured per-epoch CSV files, full configuration dictionaries, split indices,
+data provenance, environment versions, per-class metrics and final predictions
+are in \texttt{report/results/}. Figures are in \texttt{report/figures/}.
+Dependencies are pinned in \texttt{requirements.txt}; the README gives CPU
+installation and PDF build commands. Model checkpoints are local generated
+files excluded from Git; running the notebook reconstructs them.
+
+The assignment prompt comes from the course repository. OpenAI Codex
+assisted with implementation, experiment execution, explanations and LaTeX
+preparation at the student's request. All performance values in this report
+were measured in the saved runs; none are borrowed from published models.
+The named student should review the work and attribution before submission.
+
+\begin{thebibliography}{9}\raggedright
+\bibitem{cifar} A. Krizhevsky. \emph{Learning Multiple Layers of Features from Tiny Images}. 2009.
+\url{https://www.cs.toronto.edu/~kriz/cifar.html}.
+\bibitem{torch} PyTorch contributors. PyTorch documentation.
+\url{https://pytorch.org/docs/stable/}.
+\bibitem{vision} Torchvision contributors. CIFAR10 dataset implementation and checksums.
+\url{https://docs.pytorch.org/vision/stable/datasets/generated/torchvision.datasets.CIFAR10.html}.
+\bibitem{sklearn} Scikit-learn contributors. Model evaluation and classification metrics.
+\url{https://scikit-learn.org/stable/modules/model_evaluation.html}.
+\bibitem{mirror} CIFAR-10 batch-file mirror, \texttt{0Colin/cifar-10-batches-py}, commit
+\texttt{48ece5ce490482885f7a9a492fa031c1de79519c}.
+\url{https://github.com/0Colin/cifar-10-batches-py}.
+\end{thebibliography}
+\end{document}

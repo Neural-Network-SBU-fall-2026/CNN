@@ -42,8 +42,12 @@ LaTeX source: `Latex/report.tex`. Compiled PDF: `report/report.pdf`.
 From the repository root:
 
 ```bash
+python Latex/generate_results.py
 latexmk -pdf -interaction=nonstopmode -halt-on-error -outdir=report Latex/report.tex
 ```
+
+The generation step audits the saved test predictions and regenerates the
+LaTeX tables and numerical discussion; it does not run test inference again.
 
 Figures and measured JSON/CSV logs are in `report/figures/` and
 `report/results/`. The PDF and notebook report the limitations of the short
