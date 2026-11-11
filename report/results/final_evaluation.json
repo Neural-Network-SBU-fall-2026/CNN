@@ -1,0 +1,149 @@
+{
+  "run_id": "02",
+  "name": "Depth: 4 standard ReLU blocks",
+  "selection_rule": "highest validation macro F1, then lowest validation cross-entropy",
+  "checkpoint_epoch": 10,
+  "config": {
+    "input_channels": 3,
+    "num_classes": 10,
+    "activation": "relu",
+    "conv_blocks": [
+      {
+        "out_channels": 16,
+        "kernel_size": 3,
+        "stride": 1,
+        "padding": 1,
+        "batch_norm": true,
+        "pool": 2,
+        "conv_type": "standard"
+      },
+      {
+        "out_channels": 32,
+        "kernel_size": 3,
+        "stride": 1,
+        "padding": 1,
+        "batch_norm": true,
+        "pool": 2,
+        "conv_type": "standard"
+      },
+      {
+        "out_channels": 64,
+        "kernel_size": 3,
+        "stride": 1,
+        "padding": 1,
+        "batch_norm": true,
+        "pool": 2,
+        "conv_type": "standard"
+      },
+      {
+        "out_channels": 96,
+        "kernel_size": 3,
+        "stride": 1,
+        "padding": 1,
+        "batch_norm": true,
+        "pool": 2,
+        "conv_type": "standard"
+      }
+    ],
+    "classifier_hidden": 64,
+    "dropout": 0.3
+  },
+  "parameters": 86042,
+  "validation": {
+    "accuracy": 0.7758,
+    "macro_precision": 0.773492059672374,
+    "macro_recall": 0.773923956292794,
+    "macro_f1": 0.773249942509463,
+    "weighted_precision": 0.7749672961616514,
+    "weighted_recall": 0.7758,
+    "weighted_f1": 0.7749360363200786,
+    "loss": 0.6363044273376465
+  },
+  "test": {
+    "accuracy": 0.767,
+    "macro_precision": 0.7651404531432353,
+    "macro_recall": 0.7670000000000001,
+    "macro_f1": 0.7656262999982641,
+    "weighted_precision": 0.7651404531432354,
+    "weighted_recall": 0.767,
+    "weighted_f1": 0.7656262999982643,
+    "loss": 0.6596026165008545
+  },
+  "test_size": 10000,
+  "test_inference_passes": 1,
+  "classification_report": {
+    "airplane": {
+      "precision": 0.7714285714285715,
+      "recall": 0.81,
+      "f1-score": 0.7902439024390244,
+      "support": 1000.0
+    },
+    "automobile": {
+      "precision": 0.8979591836734694,
+      "recall": 0.88,
+      "f1-score": 0.8888888888888888,
+      "support": 1000.0
+    },
+    "bird": {
+      "precision": 0.6904500548847421,
+      "recall": 0.629,
+      "f1-score": 0.6582940868655154,
+      "support": 1000.0
+    },
+    "cat": {
+      "precision": 0.5872667398463227,
+      "recall": 0.535,
+      "f1-score": 0.5599162742019885,
+      "support": 1000.0
+    },
+    "deer": {
+      "precision": 0.7422885572139304,
+      "recall": 0.746,
+      "f1-score": 0.744139650872818,
+      "support": 1000.0
+    },
+    "dog": {
+      "precision": 0.6404174573055028,
+      "recall": 0.675,
+      "f1-score": 0.6572541382667965,
+      "support": 1000.0
+    },
+    "frog": {
+      "precision": 0.8011472275334608,
+      "recall": 0.838,
+      "f1-score": 0.8191593352883676,
+      "support": 1000.0
+    },
+    "horse": {
+      "precision": 0.8212121212121212,
+      "recall": 0.813,
+      "f1-score": 0.8170854271356784,
+      "support": 1000.0
+    },
+    "ship": {
+      "precision": 0.8622047244094488,
+      "recall": 0.876,
+      "f1-score": 0.8690476190476191,
+      "support": 1000.0
+    },
+    "truck": {
+      "precision": 0.837029893924783,
+      "recall": 0.868,
+      "f1-score": 0.852233676975945,
+      "support": 1000.0
+    },
+    "accuracy": 0.767,
+    "macro avg": {
+      "precision": 0.7651404531432353,
+      "recall": 0.7670000000000001,
+      "f1-score": 0.7656262999982641,
+      "support": 10000.0
+    },
+    "weighted avg": {
+      "precision": 0.7651404531432354,
+      "recall": 0.767,
+      "f1-score": 0.7656262999982643,
+      "support": 10000.0
+    }
+  }
+}
