@@ -1,0 +1,12 @@
+data/
+__pycache__/
+.ipynb_checkpoints/
+.venv/
+report/checkpoints/
+report/*.aux
+report/*.fdb_latexmk
+report/*.fls
+report/*.log
+report/*.out
+report/*.toc
+report/*.synctex.gz

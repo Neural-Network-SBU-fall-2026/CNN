@@ -1,0 +1,11 @@
+# Python 3.12; install torch/torchvision from the CPU index for this cloud machine.
+torch==2.9.1
+torchvision==0.24.1
+numpy==2.3.5
+matplotlib==3.10.8
+scikit-learn==1.8.0
+pandas==2.2.3
+seaborn==0.13.2
+jupyterlab==4.4.10
+nbclient==0.10.2
+ipykernel==6.31.0
