@@ -1,0 +1,74 @@
+[
+  {
+    "model": "baseline",
+    "class": "airplane",
+    "block": "block_1",
+    "shape": [
+      1,
+      16,
+      16,
+      16
+    ],
+    "near_constant_channels": 0
+  },
+  {
+    "model": "baseline",
+    "class": "airplane",
+    "block": "block_2",
+    "shape": [
+      1,
+      32,
+      8,
+      8
+    ],
+    "near_constant_channels": 2
+  },
+  {
+    "model": "baseline",
+    "class": "airplane",
+    "block": "block_3",
+    "shape": [
+      1,
+      64,
+      4,
+      4
+    ],
+    "near_constant_channels": 0
+  },
+  {
+    "model": "baseline",
+    "class": "cat",
+    "block": "block_1",
+    "shape": [
+      1,
+      16,
+      16,
+      16
+    ],
+    "near_constant_channels": 0
+  },
+  {
+    "model": "baseline",
+    "class": "cat",
+    "block": "block_2",
+    "shape": [
+      1,
+      32,
+      8,
+      8
+    ],
+    "near_constant_channels": 0
+  },
+  {
+    "model": "baseline",
+    "class": "cat",
+    "block": "block_3",
+    "shape": [
+      1,
+      64,
+      4,
+      4
+    ],
+    "near_constant_channels": 0
+  }
+]
