@@ -1,0 +1,163 @@
+{
+  "run_id": "04",
+  "name": "Efficiency: 3 depthwise-separable ReLU blocks",
+  "hypothesis": "Depthwise-separable convolutions should reduce parameters; measure the accuracy trade-off.",
+  "config": {
+    "input_channels": 3,
+    "num_classes": 10,
+    "activation": "relu",
+    "conv_blocks": [
+      {
+        "out_channels": 16,
+        "kernel_size": 3,
+        "stride": 1,
+        "padding": 1,
+        "batch_norm": true,
+        "pool": 2,
+        "conv_type": "depthwise"
+      },
+      {
+        "out_channels": 32,
+        "kernel_size": 3,
+        "stride": 1,
+        "padding": 1,
+        "batch_norm": true,
+        "pool": 2,
+        "conv_type": "depthwise"
+      },
+      {
+        "out_channels": 64,
+        "kernel_size": 3,
+        "stride": 1,
+        "padding": 1,
+        "batch_norm": true,
+        "pool": 2,
+        "conv_type": "depthwise"
+      }
+    ],
+    "classifier_hidden": 64,
+    "dropout": 0.3
+  },
+  "seed": 42,
+  "epochs": 10,
+  "batch_size": 128,
+  "optimizer": "AdamW",
+  "lr": 0.003,
+  "weight_decay": 0.0001,
+  "schedule": "CosineAnnealingLR, T_max=10, eta_min=0",
+  "parameters": 8101,
+  "best_epoch": 10,
+  "validation": {
+    "accuracy": 0.5802,
+    "macro_precision": 0.5757324301537944,
+    "macro_recall": 0.5777921896562801,
+    "macro_f1": 0.5740702214692529,
+    "weighted_precision": 0.5780375109340677,
+    "weighted_recall": 0.5802,
+    "weighted_f1": 0.5764241793448809,
+    "loss": 1.1801736015319824
+  },
+  "seconds": 116.369250061,
+  "history": [
+    {
+      "epoch": 1,
+      "lr": 0.003,
+      "train_loss": 1.817312882486979,
+      "train_accuracy": 0.3080222222222222,
+      "val_loss": 1.6565928310394287,
+      "val_accuracy": 0.3734,
+      "val_macro_f1": 0.34698986348859684,
+      "seconds": 11.895909920999884
+    },
+    {
+      "epoch": 2,
+      "lr": 0.0029265847744427307,
+      "train_loss": 1.6284622336069743,
+      "train_accuracy": 0.38895555555555555,
+      "val_loss": 1.7217442947387696,
+      "val_accuracy": 0.3908,
+      "val_macro_f1": 0.36795430712797683,
+      "seconds": 12.073644699999932
+    },
+    {
+      "epoch": 3,
+      "lr": 0.0027135254915624215,
+      "train_loss": 1.5125465010960897,
+      "train_accuracy": 0.44482222222222223,
+      "val_loss": 1.5133112272262572,
+      "val_accuracy": 0.4366,
+      "val_macro_f1": 0.42225160974046216,
+      "seconds": 11.474064016000057
+    },
+    {
+      "epoch": 4,
+      "lr": 0.0023816778784387102,
+      "train_loss": 1.4366645150078667,
+      "train_accuracy": 0.47586666666666666,
+      "val_loss": 1.4609965955734252,
+      "val_accuracy": 0.4754,
+      "val_macro_f1": 0.4741550021265595,
+      "seconds": 10.797125872000152
+    },
+    {
+      "epoch": 5,
+      "lr": 0.0019635254915624217,
+      "train_loss": 1.3798353765063816,
+      "train_accuracy": 0.49395555555555554,
+      "val_loss": 1.3388671070098876,
+      "val_accuracy": 0.5246,
+      "val_macro_f1": 0.5130116368436309,
+      "seconds": 10.358063505000018
+    },
+    {
+      "epoch": 6,
+      "lr": 0.0015000000000000005,
+      "train_loss": 1.3396767928441367,
+      "train_accuracy": 0.5144222222222222,
+      "val_loss": 1.2421606468200683,
+      "val_accuracy": 0.561,
+      "val_macro_f1": 0.5570038793761366,
+      "seconds": 12.454293952999933
+    },
+    {
+      "epoch": 7,
+      "lr": 0.0010364745084375793,
+      "train_loss": 1.3101098328060574,
+      "train_accuracy": 0.5248666666666667,
+      "val_loss": 1.2613561958312989,
+      "val_accuracy": 0.5502,
+      "val_macro_f1": 0.5414433638359617,
+      "seconds": 12.204725836999842
+    },
+    {
+      "epoch": 8,
+      "lr": 0.0006183221215612907,
+      "train_loss": 1.290384569231669,
+      "train_accuracy": 0.5333555555555556,
+      "val_loss": 1.2095006048202515,
+      "val_accuracy": 0.5638,
+      "val_macro_f1": 0.5570795544837686,
+      "seconds": 12.084369497999887
+    },
+    {
+      "epoch": 9,
+      "lr": 0.0002864745084375791,
+      "train_loss": 1.2738505592558118,
+      "train_accuracy": 0.5379111111111111,
+      "val_loss": 1.22637063331604,
+      "val_accuracy": 0.5606,
+      "val_macro_f1": 0.558100707000853,
+      "seconds": 11.670116006999933
+    },
+    {
+      "epoch": 10,
+      "lr": 7.341522555726972e-05,
+      "train_loss": 1.264813762029012,
+      "train_accuracy": 0.5427555555555555,
+      "val_loss": 1.1801736015319824,
+      "val_accuracy": 0.5802,
+      "val_macro_f1": 0.5740702214692529,
+      "seconds": 11.313228262999928
+    }
+  ]
+}
