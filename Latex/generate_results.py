@@ -74,39 +74,37 @@ if __name__ == '__main__':
                      f"{100 * run['validation']['accuracy']:.2f}", f"{run['validation']['loss']:.4f}",
                      f"{run['validation']['macro_f1']:.4f}", f"{run['seconds']:.1f}"])
     write('comparison_table.tex', table(
-        'Measured comparison. Accuracy and loss are from each run\'s macro-F1-selected checkpoint, not independent best values. Wall time includes training and validation.',
+        'Validation results at each run\'s selected checkpoint. Time includes training and validation.',
         'crrrrrr', ['Run', 'Parameters', 'Epoch', r'Val. acc. (\%)', 'Val. loss', 'Val. macro F1', 'Time (s)'], rows))
-    discussion = [f"Run {winner['run_id']} has the highest validation macro F1 "
-                  f"({winner['validation']['macro_f1']:.4f}) under the fixed protocol."]
-    base = runs[0]
-    for run in runs[1:]:
-        delta = run['validation']['macro_f1'] - base['validation']['macro_f1']
-        discussion.append(f"Run {run['run_id']} changes macro F1 by ${delta:+.4f}$ versus the baseline "
-                          f"and uses {run['parameters']:,} parameters.")
-    ds = runs[3]
-    reduction = 1 - ds['parameters'] / base['parameters']
-    failures = [r for r in runs[1:] if r['validation']['macro_f1'] <= base['validation']['macro_f1']]
-    if failures:
-        r = failures[0]
-        discussion.append(f"In particular, run {r['run_id']} did not improve baseline validation macro F1. "
-                          "This is a measured unsuccessful change under this budget, not proof that the architecture can never work.")
+    base, deeper, gelu, separable = runs
+    base_f1 = base['validation']['macro_f1']
+    reduction = 1 - separable['parameters'] / base['parameters']
+    write('comparison_discussion.tex',
+          f"Run {winner['run_id']} led on validation macro F1 at {winner['validation']['macro_f1']:.4f}. "
+          f"The fourth block took the score from {base_f1:.4f} to {deeper['validation']['macro_f1']:.4f} "
+          f"with {deeper['parameters']:,} parameters. The switch to GELU kept the baseline's parameter "
+          f"count and scored {gelu['validation']['macro_f1']:.4f}.\n\n"
+          f"The separable model used {100 * reduction:.1f}\\% fewer parameters. Its validation macro F1 "
+          f"was {separable['validation']['macro_f1']:.4f}, compared with {base_f1:.4f} for the baseline. "
+          f"The separable run took {separable['seconds']:.1f} seconds and the baseline took "
+          f"{base['seconds']:.1f} seconds.")
+
+    first_epoch, last_epoch = base['history'][0], base['history'][-1]
+    final_loss_minima = sum(
+        run['history'][-1]['val_loss'] == min(epoch['val_loss'] for epoch in run['history'])
+        for run in runs)
+    if final_loss_minima == len(runs):
+        loss_summary = ("All four runs had their lowest validation loss at the final epoch. "
+                        "The curves give little evidence of sustained overfitting within ten epochs.")
     else:
-        discussion.append("All alternatives improved on baseline in this seed; there is no observed failed architecture improvement to invent.")
-    discussion.append(f"The separable model reduces trainable parameters by {100*reduction:.1f}\\%. "
-                      "Its accuracy and measured time must be considered together with that saving. "
-                      "No multi-seed statistical significance is established by these comparisons.")
-    write('comparison_discussion.tex', '\n\n'.join(discussion))
-    text=[]
-    for run in runs:
-        h=run['history']; last=h[-1]; min_loss=min(row['val_loss'] for row in h)
-        text.append(f"\\textbf{{Run {run['run_id']}.}} At epoch 10, training/validation loss is "
-                    f"{last['train_loss']:.4f}/{last['val_loss']:.4f} and accuracy is "
-                    f"{100*last['train_accuracy']:.2f}\\%/{100*last['val_accuracy']:.2f}\\%. "
-                    f"The best observed validation loss is {min_loss:.4f}. "
-                    + ("A higher final validation loss indicates some late deterioration; checkpointing avoids selecting that last epoch automatically."
-                       if last['val_loss'] > min_loss + 0.02 else
-                       "There is no clear late validation-loss increase exceeding 0.02; this short run does not establish full convergence."))
-    write('curve_discussion.tex', '\n\n'.join(text))
+        loss_summary = (f"Validation loss was lowest at the final epoch in {final_loss_minima} of the four runs. "
+                        "A sustained rise in validation loss alongside falling training loss would suggest overfitting.")
+    write('curve_discussion.tex',
+          f"Baseline training loss went from {first_epoch['train_loss']:.4f} to {last_epoch['train_loss']:.4f}. "
+          f"Validation loss went from {first_epoch['val_loss']:.4f} to {last_epoch['val_loss']:.4f}. "
+          f"The baseline checkpoint comes from epoch {base['best_epoch']}, where validation macro F1 "
+          "was highest. Loss and macro F1 track different aspects of the predictions.\n\n"
+          + loss_summary)
     config=final['config']; rows=[]; size=32; channels=3
     for i,b in enumerate(config['conv_blocks'],1):
         out=b['out_channels']; k=b['kernel_size']; stride=b['stride']; pad=b['padding']
@@ -116,57 +114,53 @@ if __name__ == '__main__':
         rows.append([str(i), f'{channels} $\\to$ {out}', kind, f'{k}/{stride}/{pad}',
                      f'({out},{size},{size})'])
         channels=out
-    write('architecture_table.tex', table('Selected convolution blocks. Output shapes omit the batch dimension. Each block has batch normalization and max pooling by two; activation is ' + tex(config['activation']) + '.',
-          'cllll', ['Block', 'Channels', 'Type', 'Kernel/stride/padding', 'Output $(C,H,W)$'], rows))
+    activation = {'relu': 'ReLU', 'gelu': 'GELU'}[config['activation']]
+    write('architecture_table.tex', table(
+        'Convolution blocks in the selected model. Output shapes omit the batch dimension. '
+        f'Each block uses batch normalization, {activation} and max pooling by two.',
+        'cllll', ['Block', 'Channels', 'Type', 'Kernel/stride/padding', 'Output $(C,H,W)$'], rows))
     features=read('selected_feature_stats.json')
-    bfeatures=read('baseline_feature_stats.json')
     first=[r for r in features if r['class']=='airplane']
     shape=' $\\to$ '.join('$('+','.join(map(str,r['shape'][1:]))+')$' for r in first)
-    feature_text=f"The selected model's block-output shapes are {shape}. "
     constant=sum(r['near_constant_channels'] for r in features)
-    feature_text+=f"Across the two selected-model inputs and all blocks, {constant} near-constant channel responses are recorded (a response count, not a count of distinct filters). "
-    feature_text+=("In the baseline airplane image, first-block channels 0, 2, 3 and 4 emphasize a narrow vertical central structure, "
-                   "consistent with a local contrast or edge response. Channels 1, 5 and 7 distribute responses more broadly, "
-                   "including image borders; channel 6 contains more scattered local responses. "
-                   "For the cat image the strong regions move toward upper-left and lower image structures, "
-                   "which shows that these are input-dependent filters rather than fixed class masks. "
-                   "Baseline late channels 0, 2 and 6 emphasize middle/lower coarse cells for the airplane, "
-                   "while channels 1, 4 and 7 show distinct upper/lower spatial responses. "
-                   "These are visual descriptions, not evidence that any particular channel detects an airplane, a cat or a named body part.")
-    write('feature_discussion.tex',feature_text)
+    write('feature_discussion.tex',
+          "In the baseline's first block, channels 0, 2, 3 and 4 pick out a narrow vertical band "
+          "near the middle of the airplane image. Channel 1 also responds along the borders. "
+          "For the cat, strong responses appear farther toward the upper left and the bottom. "
+          "By the last baseline block, the airplane's channel 0 has its strongest cells near "
+          "the middle and bottom of a coarse grid. Fine boundaries are harder to trace at that resolution.\n\n"
+          f"The selected model's block outputs have shapes {shape}. "
+          f"There are {constant} near-constant responses, counted over both images and all blocks.")
     summary=[]
     for key,label in [('accuracy','Accuracy'),('macro_precision','Macro precision'),('macro_recall','Macro recall'),
                       ('macro_f1','Macro F1'),('weighted_precision','Weighted precision'),
                       ('weighted_recall','Weighted recall'),('weighted_f1','Weighted F1')]:
         summary.append([label,f"{final['test'][key]:.4f}"])
-    tables=table('Final aggregate test metrics, all on the same 10,000 predictions.','lr',['Metric','Value'],summary)
+    tables=table('Aggregate metrics for the 10,000 test examples.','lr',['Metric','Value'],summary)
     classes=['airplane','automobile','bird','cat','deer','dog','frog','horse','ship','truck']
     rows=[]
     for name in classes:
         r=final['classification_report'][name]
         rows.append([name,f"{r['precision']:.4f}",f"{r['recall']:.4f}",f"{r['f1-score']:.4f}",str(int(r['support']))])
-    tables+=table('Per-class final test precision, recall and F1.','lrrrr',['Class','Precision','Recall','F1','Support'],rows)
+    tables+=table('Test precision, recall and F1 by class.','lrrrr',['Class','Precision','Recall','F1','Support'],rows)
     write('test_tables.tex',tables)
     ranked=sorted(classes,key=lambda n:final['classification_report'][n]['f1-score'])
     off=matrix.copy();np.fill_diagonal(off,0)
     a,b=np.unravel_index(off.argmax(),off.shape)
-    write('test_discussion.tex',f"By test F1, the easiest class is {ranked[-1]} "
-          f"({final['classification_report'][ranked[-1]]['f1-score']:.4f}) and the hardest is {ranked[0]} "
-          f"({final['classification_report'][ranked[0]]['f1-score']:.4f}). "
-          f"The largest directed confusion is {classes[a]} predicted as {classes[b]} ({off.max()} examples). "
-          "The confusion matrix supplies the specific errors hidden by the overall accuracy. "
-          "Class-wise results are descriptive outcomes of the frozen model, not a further model-selection input.")
-    write('occlusion_discussion.tex',f"Clean validation accuracy changes from {100*robustness['clean']['accuracy']:.2f}\\% "
-          f"to {100*robustness['occluded']['accuracy']:.2f}\\% under occlusion, a decrease of "
-          f"{100*robustness['accuracy_drop']:.2f} percentage points. Macro F1 changes from "
-          f"{robustness['clean']['macro_f1']:.4f} to {robustness['occluded']['macro_f1']:.4f} "
-          f"(difference ${-robustness['macro_f1_drop']:+.4f}$).")
-    changed=max(runs[1:],key=lambda r:abs(r['validation']['macro_f1']-base['validation']['macro_f1']))
-    write('reflection.tex',f"Among these interventions, run {changed['run_id']} has the largest absolute validation macro-F1 "
-          f"change versus baseline (${changed['validation']['macro_f1']-base['validation']['macro_f1']:+.4f}$). "
-          f"The deeper model (run 02) scores {runs[1]['validation']['macro_f1']:.4f}, compared with "
-          f"{base['validation']['macro_f1']:.4f} for baseline. This single comparison does not imply that "
-          "increasing depth or width always improves validation performance; depth and the extra output width "
-          "were changed together, and width alone was not isolated. The histories show any late "
-          "validation deterioration directly; the final test evaluation does not diagnose which additional architecture should be tried.")
+    write('test_discussion.tex',
+          f"The highest test F1 belongs to {ranked[-1]} ({final['classification_report'][ranked[-1]]['f1-score']:.4f}). "
+          f"The lowest belongs to {ranked[0]} ({final['classification_report'][ranked[0]]['f1-score']:.4f}). "
+          f"The largest off-diagonal cell is {classes[a]} classified as {classes[b]}, "
+          f"accounting for {off[a, b]} of the {matrix[a].sum():,} true {classes[a]} examples.")
+    write('occlusion_discussion.tex',
+          f"Covering the centre moved validation accuracy from {100 * robustness['clean']['accuracy']:.2f}\\% "
+          f"to {100 * robustness['occluded']['accuracy']:.2f}\\%, a change of "
+          f"${-100 * robustness['accuracy_drop']:+.2f}$ percentage points. Macro F1 moved from "
+          f"{robustness['clean']['macro_f1']:.4f} to {robustness['occluded']['macro_f1']:.4f}.")
+    changed = max(runs[1:], key=lambda run: abs(run['validation']['macro_f1'] - base_f1))
+    delta = changed['validation']['macro_f1'] - base_f1
+    write('reflection.tex',
+          f"Run {changed['run_id']} moved validation macro F1 the most (${delta:+.4f}$ relative to the baseline). "
+          "Run 02 adds a block, increases the final channel count to 96 and halves the spatial grid once more. "
+          "The comparison measures the effect of that whole block.")
     print('Generated LaTeX measurements, tables and discussion from saved results')

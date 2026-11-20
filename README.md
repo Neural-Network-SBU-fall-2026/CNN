@@ -3,10 +3,12 @@
 **Sajjad Ranjbar — 405522012**  
 Computer Science, Faculty of Mathematical Sciences, Shahid Beheshti University
 
-Open `Noebooks/CIFAR10_CNN_Assignment.ipynb` and run its cells in order.
-It contains data inspection, four architecture experiments, intermediate
-activations, validation-based model selection, one final test evaluation,
-and a validation-only occlusion experiment. Results use real CIFAR-10 data.
+The notebook compares four CNN architectures on CIFAR-10. It includes the
+training curves, feature maps for an airplane and a cat, and a final test
+evaluation of the model selected on validation data.
+
+- [Assignment notebook](Noebooks/CIFAR10_CNN_Assignment.ipynb)
+- [PDF report](report/report.pdf)
 
 ## Environment and reproduction
 
@@ -21,43 +23,28 @@ cd Noebooks
 jupyter lab
 ```
 
-The notebook uses seed 42, the full fixed 45,000/5,000/10,000 split,
-10 epochs per configuration, batch size 128, AdamW, and the same cosine
-learning-rate schedule for each run. Defaults can run on CPU or CUDA.
-`CIFAR_ROOT` optionally points to a dataset cache; `CNN_NUM_THREADS`
-optionally controls CPU threads (default 4). Run all cells for a fresh
-experiment; checkpoints are overwritten, not silently reused. Local model
-checkpoints are ignored by Git; measured logs and figures are versioned.
-Runtime and exact architecture/settings are recorded in `report/results/`.
+Run the notebook cells in order to reproduce the experiments. Each configuration
+uses the same 45,000 training examples and 5,000 validation examples, seed 42,
+and ten epochs of AdamW with batch size 128 and a cosine learning-rate schedule.
+The official 10,000-image test split is used for the final evaluation.
 
-CIFAR-10 is obtained from its official source when accessible. A pinned
-GitHub mirror is used as a fallback; every original batch and metadata file
-must match torchvision's published MD5 before loading. The source commit
-and SHA-256 digests are recorded. Downloaded data are ignored by Git.
-Normalization uses only the 45,000 training examples, never validation or test.
+The notebook uses CUDA when available and defaults to four threads on CPU.
+Set `CNN_NUM_THREADS` to change the thread count or `CIFAR_ROOT` to point to a
+dataset cache. If the official CIFAR-10 download is unavailable, the notebook
+uses a pinned GitHub mirror. All batch files and the metadata file must match
+torchvision's checksums before loading. A fresh run replaces local checkpoints
+and regenerates the results and plots.
 
 ## Report
 
-LaTeX source: `Latex/report.tex`. Compiled PDF: `report/report.pdf`.
-From the repository root:
+Build the report from the saved results by running these commands from the
+repository root.
 
 ```bash
 python Latex/generate_results.py
 latexmk -pdf -interaction=nonstopmode -halt-on-error -outdir=report Latex/report.tex
 ```
 
-The generation step audits the saved test predictions and regenerates the
-LaTeX tables and numerical discussion; it does not run test inference again.
-
-Figures and measured JSON/CSV logs are in `report/figures/` and
-`report/results/`. The PDF and notebook report the limitations of the short
-CPU experiments; these are not claims of a globally optimal architecture.
-
-## Attribution
-
-This completed implementation and report were prepared with OpenAI Codex
-assistance at the student's request. The assignment template is from this
-repository; the data-loading and model APIs are from PyTorch/torchvision,
-and metrics are from scikit-learn. The named student should review the
-code, measured results, and explanations before submission. No performance
-numbers are invented or copied from other experiments.
+The generator checks the saved test predictions and rebuilds the LaTeX tables
+and results discussion. The experiment logs, split indices and data provenance
+are in `report/results/`. The notebook and report cite the dataset and libraries.

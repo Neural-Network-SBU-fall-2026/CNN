@@ -1,11 +1,3 @@
-Run 02 has the highest validation macro F1 (0.7732) under the fixed protocol.
+Run 02 led on validation macro F1 at 0.7732. The fourth block took the score from 0.6716 to 0.7732 with 86,042 parameters. The switch to GELU kept the baseline's parameter count and scored 0.6981.
 
-Run 02 changes macro F1 by $+0.1017$ versus the baseline and uses 86,042 parameters.
-
-Run 03 changes macro F1 by $+0.0265$ versus the baseline and uses 28,506 parameters.
-
-Run 04 changes macro F1 by $-0.0975$ versus the baseline and uses 8,101 parameters.
-
-In particular, run 04 did not improve baseline validation macro F1. This is a measured unsuccessful change under this budget, not proof that the architecture can never work.
-
-The separable model reduces trainable parameters by 71.6\%. Its accuracy and measured time must be considered together with that saving. No multi-seed statistical significance is established by these comparisons.
+The separable model used 71.6\% fewer parameters. Its validation macro F1 was 0.5741, compared with 0.6716 for the baseline. The separable run took 116.4 seconds and the baseline took 116.1 seconds.
